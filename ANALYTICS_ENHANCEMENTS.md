@@ -380,12 +380,12 @@ pytest tests/test_analytics_enhanced.py --cov=app.api.analytics
 
 ### Test Cases
 
-1. ✅ `test_top_urls_24h` - Top URLs retrieval and device breakdown
-2. ✅ `test_hourly_analytics_7days` - Hourly data aggregation
-3. ✅ `test_device_analytics` - Device distribution calculation
-4. ✅ `test_device_type_parser` - User-Agent parsing
-5. ✅ `test_clicks_per_minute` - Sliding window counter
-6. ✅ `test_sliding_window_counter` - Redis operations
+1. `test_top_urls_24h` - Top URLs retrieval and device breakdown
+2. `test_hourly_analytics_7days` - Hourly data aggregation
+3. `test_device_analytics` - Device distribution calculation
+4. `test_device_type_parser` - User-Agent parsing
+5. `test_clicks_per_minute` - Sliding window counter
+6. `test_sliding_window_counter` - Redis operations
 
 ## Python API Examples
 

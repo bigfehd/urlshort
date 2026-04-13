@@ -2,7 +2,7 @@
 
 A production-ready URL shortener service built with FastAPI, PostgreSQL, Redis, and Celery. Includes comprehensive analytics, Prometheus metrics, and full CI/CD integration.
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Architecture](#architecture)
 - [Features](#features)
@@ -15,7 +15,7 @@ A production-ready URL shortener service built with FastAPI, PostgreSQL, Redis, 
 - [Monitoring](#monitoring)
 - [Testing](#testing)
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────┐
@@ -44,7 +44,7 @@ A production-ready URL shortener service built with FastAPI, PostgreSQL, Redis, 
          └────────────────────┘
 ```
 
-## ✨ Features
+## Features
 
 - **URL Shortening**: Generate short, URL-safe codes from 6-character Base62 encoding
 - **FastAPI**: Modern, high-performance async web framework
@@ -64,7 +64,7 @@ A production-ready URL shortener service built with FastAPI, PostgreSQL, Redis, 
 - **CI/CD Pipeline**: GitHub Actions with automated testing and deployment
 - **Health Checks**: Database and Redis connectivity monitoring
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 - **Framework**: FastAPI 0.109.0
@@ -87,18 +87,18 @@ A production-ready URL shortener service built with FastAPI, PostgreSQL, Redis, 
 - **Monitoring**: Prometheus 2.0
 - **CI/CD**: GitHub Actions
 
-## 🏛️ Architecture Decisions
+## Architecture Decisions
 
 ### 1. **Base62 Encoding for Short Codes**
 
 **Decision**: Use database primary key → Base62 encoding
 
 **Rationale**:
-- ✅ Guaranteed uniqueness without distributed consensus
-- ✅ Sequential IDs allow natural URL growth prediction
-- ✅ Smaller code space than UUID-based approaches
-- ✅ URL-safe characters (0-9, A-Z, a-z)
-- ✅ No need for distributed locking mechanisms
+-  Guaranteed uniqueness without distributed consensus
+-  Sequential IDs allow natural URL growth prediction
+-  Smaller code space than UUID-based approaches
+-  URL-safe characters (0-9, A-Z, a-z)
+-  No need for distributed locking mechanisms
 
 **Implementation**:
 ```python
@@ -111,11 +111,11 @@ short_code = Base62Encoder.encode(db_id)
 **Decision**: Lazy load with cache-aside (demand-driven)
 
 **Rationale**:
-- ✅ Reduces database load for popular URLs
-- ✅ Cache validity guaranteed (DB is source of truth)
-- ✅ No complex cache invalidation logic
-- ✅ Graceful degradation if cache fails
-- ✅ Memory efficient (only hot URLs cached)
+-  Reduces database load for popular URLs
+-  Cache validity guaranteed (DB is source of truth)
+-  No complex cache invalidation logic
+-  Graceful degradation if cache fails
+-  Memory efficient (only hot URLs cached)
 
 **Implementation**:
 ```
@@ -131,11 +131,11 @@ Try Cache (FAST)
 **Decision**: Asynchronous background task processing
 
 **Rationale**:
-- ✅ Redirect response time unaffected by database operations
-- ✅ Handles traffic spikes without blocking
-- ✅ Automatic retry logic for transient failures
-- ✅ Scales horizontally with worker pool
-- ✅ Natural rate-limiting via queue depth
+-  Redirect response time unaffected by database operations
+-  Handles traffic spikes without blocking
+-  Automatic retry logic for transient failures
+-  Scales horizontally with worker pool
+-  Natural rate-limiting via queue depth
 
 **Benefits**:
 - **Fast Redirects**: Client doesn't wait for click recording
@@ -148,11 +148,11 @@ Try Cache (FAST)
 **Decision**: PostgreSQL database with async SQLAlchemy ORM
 
 **Rationale**:
-- ✅ Mature, reliable ACID-compliant RDBMS
-- ✅ AsyncPG provides non-blocking database driver
-- ✅ SQLAlchemy 2.0 async support
-- ✅ Complex queries (aggregations for analytics)
-- ✅ Transaction support for data consistency
+-  Mature, reliable ACID-compliant RDBMS
+-  AsyncPG provides non-blocking database driver
+-  SQLAlchemy 2.0 async support
+-  Complex queries (aggregations for analytics)
+-  Transaction support for data consistency
 
 **Schema Design**:
 ```
@@ -177,11 +177,11 @@ click_events
 **Decision**: Instrument every HTTP request with metrics
 
 **Rationale**:
-- ✅ Observability built-in from start
-- ✅ Production-standard metrics format
-- ✅ Request latency histograms with buckets
-- ✅ Per-endpoint tracking
-- ✅ Direct integration with monitoring stacks
+-  Observability built-in from start
+-  Production-standard metrics format
+-  Request latency histograms with buckets
+-  Per-endpoint tracking
+-  Direct integration with monitoring stacks
 
 **Metrics Collected**:
 ```
@@ -199,11 +199,11 @@ urlshort_celery_tasks_total{task_name, status}
 **Decision**: Version-controlled schema migrations
 
 **Rationale**:
-- ✅ Reproducible database changes across environments
-- ✅ Rollback capability for failed deployments
-- ✅ Audit trail of schema evolution
-- ✅ Team collaboration on schema changes
-- ✅ Standard tool in SQLAlchemy ecosystem
+-  Reproducible database changes across environments
+-  Rollback capability for failed deployments
+-  Audit trail of schema evolution
+-  Team collaboration on schema changes
+-  Standard tool in SQLAlchemy ecosystem
 
 **Workflow**:
 ```bash
@@ -216,22 +216,22 @@ alembic upgrade head
 **Decision**: SQLAlchemy 2.0 with asyncio support
 
 **Rationale**:
-- ✅ Non-blocking database operations
-- ✅ Native async/await syntax
-- ✅ Connection pooling with asyncpg
-- ✅ Type hints for better IDE support
-- ✅ Mapped classes instead of declarative
+-  Non-blocking database operations
+-  Native async/await syntax
+-  Connection pooling with asyncpg
+-  Type hints for better IDE support
+-  Mapped classes instead of declarative
 
 ### 8. **Docker Compose for Local Development**
 
 **Decision**: Multi-container orchestration with docker-compose
 
 **Rationale**:
-- ✅ Replicates production architecture locally
-- ✅ Easy dependency management (Postgres, Redis)
-- ✅ One-command setup: `docker-compose up`
-- ✅ Service networking built-in
-- ✅ Health checks per service
+-  Replicates production architecture locally
+-  Easy dependency management (Postgres, Redis)
+-  One-command setup: `docker-compose up`
+-  Service networking built-in
+-  Health checks per service
 
 **Services**:
 ```yaml
@@ -248,12 +248,12 @@ prometheus  - Metrics collector
 **Decision**: Automated testing and deployment pipeline
 
 **Rationale**:
-- ✅ Built into GitHub, no extra tools
-- ✅ Runs tests on every push and PR
-- ✅ Docker image building and registry push
-- ✅ Code quality checks (linting, type checking)
-- ✅ Security scanning with Trivy
-- ✅ Codecov integration for coverage tracking
+-  Built into GitHub, no extra tools
+-  Runs tests on every push and PR
+-  Docker image building and registry push
+-  Code quality checks (linting, type checking)
+-  Security scanning with Trivy
+-  Codecov integration for coverage tracking
 
 **Pipeline Stages**:
 1. **Test**: Run pytest, linters, type checkers
@@ -266,18 +266,18 @@ prometheus  - Metrics collector
 **Decision**: Aggregate click data by day/hour
 
 **Rationale**:
-- ✅ Time-series data for trend analysis
-- ✅ Hourly and daily granularity options
-- ✅ Top URLs ranking
-- ✅ Account-level summary statistics
-- ✅ Efficient SQL aggregations
+-  Time-series data for trend analysis
+-  Hourly and daily granularity options
+-  Top URLs ranking
+-  Account-level summary statistics
+-  Efficient SQL aggregations
 
 **Endpoints**:
 - `GET /api/analytics/{short_code}` - Single URL analytics
 - `GET /api/analytics/dashboard/summary` - System-wide stats
 - `GET /api/analytics/dashboard/hourly` - Hourly distribution
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### 1. Clone and Setup
 
@@ -318,7 +318,7 @@ uvicorn app.main:app --reload
 celery -A workers.config:celery_app worker --loglevel=info
 ```
 
-## 📚 API Documentation
+##  API Documentation
 
 ### Interactive Documentation
 - **Swagger UI**: http://localhost:8000/docs
@@ -526,7 +526,7 @@ curl http://localhost:8000/metrics
 # Returns Prometheus-format metrics
 ```
 
-## 💾 Database Schema
+## Database Schema
 
 ### Tables
 
@@ -564,7 +564,7 @@ CREATE INDEX ix_click_events_short_url_id_clicked_at
   ON click_events(short_url_id, clicked_at);
 ```
 
-## 🐳 Deployment
+##  Deployment
 
 ### Docker Build
 
@@ -611,7 +611,7 @@ MAX_URL_LENGTH=2048
 MAX_REQUESTS_PER_MINUTE=1000
 ```
 
-## 📊 Monitoring
+##  Monitoring
 
 ### Prometheus Metrics
 
@@ -647,7 +647,7 @@ docker logs urlshort-celery-worker
 docker logs urlshort-postgres
 ```
 
-## 🧪 Testing
+##  Testing
 
 ### Run All Tests
 
@@ -671,39 +671,39 @@ pytest tests/test_urls.py::test_create_short_url -v
 ### Test Categories
 
 **URL Shortening** (`test_urls.py`):
-- ✅ Create shortened URL
-- ✅ Redirect with cache hit
-- ✅ Redirect with cache miss
-- ✅ Get URL info
-- ✅ List URLs with pagination
-- ✅ Handle invalid URLs
+-  Create shortened URL
+-  Redirect with cache hit
+-  Redirect with cache miss
+-  Get URL info
+-  List URLs with pagination
+-  Handle invalid URLs
 
 **Utilities** (`test_utils.py`):
-- ✅ Base62 encoding/decoding
-- ✅ Short code generation
-- ✅ URL validation
-- ✅ Roundtrip encoding
+-  Base62 encoding/decoding
+-  Short code generation
+-  URL validation
+-  Roundtrip encoding
 
 **Analytics** (`test_analytics.py`):
-- ✅ Get analytics for URL
-- ✅ Dashboard summary
-- ✅ Hourly distribution
+-  Get analytics for URL
+-  Dashboard summary
+-  Hourly distribution
 
 **Enhanced Analytics** (`test_analytics_enhanced.py`):
-- ✅ Device type detection (mobile/desktop/bot)
-- ✅ Top URLs endpoint with device breakdown
-- ✅ Hourly analytics with 7-day window
-- ✅ Device distribution analytics
-- ✅ Real-time clicks-per-minute tracking
-- ✅ Sliding window counter operations
+-  Device type detection (mobile/desktop/bot)
+-  Top URLs endpoint with device breakdown
+-  Hourly analytics with 7-day window
+-  Device distribution analytics
+-  Real-time clicks-per-minute tracking
+-  Sliding window counter operations
 
 **Cache** (`test_cache.py`):
-- ✅ Cache set/get
-- ✅ Cache miss handling
-- ✅ Cache deletion
-- ✅ Cache flush
-- ✅ JSON serialization
-- ✅ Sliding window counter
+-  Cache set/get
+-  Cache miss handling
+-  Cache deletion
+-  Cache flush
+-  JSON serialization
+-  Sliding window counter
 
 ### Testing Analytics Endpoints
 
@@ -714,7 +714,7 @@ For comprehensive examples on testing all analytics features, see [ANALYTICS_TES
 - Continuous monitoring setup
 - Troubleshooting guide
 
-## 📈 Performance Characteristics
+##  Performance Characteristics
 
 ### Latency (Measured Locally)
 
@@ -739,7 +739,7 @@ For comprehensive examples on testing all analytics features, see [ANALYTICS_TES
 - **Redis**: ~100MB (depends on cache size)
 - **Database**: Grows with data
 
-## 🔒 Security Considerations
+##  Security Considerations
 
 - [ ] HTTPS/TLS for all external communication
 - [ ] Input validation (URL length limits)
@@ -751,11 +751,11 @@ For comprehensive examples on testing all analytics features, see [ANALYTICS_TES
 - [ ] Regular dependency updates
 - [ ] Security scanning in CI/CD
 
-## 📝 License
+##  License
 
 MIT License - Feel free to use in production
 
-## 🤝 Contributing
+##  Contributing
 
 1. Create feature branch
 2. Write tests
@@ -763,10 +763,10 @@ MIT License - Feel free to use in production
 4. Submit PR
 5. Wait for CI/CD to pass
 
-## 📞 Support
+##  Support
 
 For issues and questions, please open a GitHub issue.
 
 ---
 
-**Built with ❤️ for production**
+**Built for production**

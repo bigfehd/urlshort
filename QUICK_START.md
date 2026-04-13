@@ -5,7 +5,7 @@
 
 ---
 
-## 📚 Documentation Map
+## Documentation Map
 
 | Need | Document | Purpose |
 |------|----------|---------|
@@ -17,7 +17,7 @@
 
 ---
 
-## 🎯 What You Have
+## What You Have
 
 ### ✅ Core URL Shortener
 - Create shortened URLs with Base62 encoding
@@ -40,7 +40,7 @@
 
 ---
 
-## 🚀 5-Minute Quick Start
+## 5-Minute Quick Start
 
 ### Start Everything
 ```bash
@@ -85,7 +85,7 @@ http://localhost:8000/docs
 
 ---
 
-## 🔗 All API Endpoints
+## All API Endpoints
 
 ### Shortening (2 endpoints)
 ```
@@ -113,7 +113,7 @@ GET    /docs                     Swagger UI
 
 ---
 
-## 📊 Example API Responses
+## Example API Responses
 
 ### Create URL
 ```json
@@ -235,7 +235,7 @@ docker-compose down -v
 
 ---
 
-## 💾 Database Commands
+## Database Commands
 
 ```bash
 # Connect to database
@@ -266,7 +266,7 @@ LIMIT 10;
 
 ---
 
-## 🔴 Troubleshooting
+## Troubleshooting
 
 ### "Connection refused" on port 8000
 - Check Docker: `docker-compose ps`
@@ -296,7 +296,7 @@ LIMIT 10;
 
 ---
 
-## 🧪 Quick Tests
+## Quick Tests
 
 ### Test Create URL
 ```bash
@@ -352,7 +352,7 @@ pytest tests/ -v --cov=app
 
 ---
 
-## 🔑 Key Concepts
+## Key Concepts
 
 ### Device Detection Priority
 ```
@@ -409,7 +409,7 @@ curl http://localhost:8000/api/analytics/1/device-analytics
 
 ---
 
-## 🔐 Security Checklist
+## Security Checklist
 
 Before production:
 - [ ] Enable HTTPS (TLS certificates)
@@ -425,7 +425,7 @@ Before production:
 
 ---
 
-## 📞 Getting Help
+## Getting Help
 
 1. **Check documentation**: Start with [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)
 2. **See examples**: Review [ANALYTICS_TESTING.md](ANALYTICS_TESTING.md)
@@ -435,7 +435,7 @@ Before production:
 
 ---
 
-## 🎯 Next Steps
+## Next Steps
 
 1. **Deploy**: Follow README.md deployment section
 2. **Setup monitoring**: Configure Prometheus alerts
