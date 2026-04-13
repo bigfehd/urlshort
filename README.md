@@ -51,6 +51,11 @@ A production-ready URL shortener service built with FastAPI, PostgreSQL, Redis, 
 - **Redis Caching**: Cache-aside pattern for instant redirects
 - **Async Database**: SQLAlchemy 2.0 with asyncpg for non-blocking DB ops
 - **Click Analytics**: Track every redirect with user agent, referrer, and IP
+- **Device Detection**: Automatically classify clicks from mobile, desktop, or bot
+- **Hourly Analytics**: 7-day hourly breakdown of click trends per URL
+- **Real-Time Metrics**: Clicks-per-minute sliding window for live dashboards
+- **Top URLs Endpoint**: Get 10 most popular links in last 24 hours with device breakdown
+- **Device Analytics**: Detailed breakdown of mobile vs desktop vs bot traffic
 - **Async Task Processing**: Celery workers for non-blocking click event recording
 - **Prometheus Metrics**: Full request/response metrics and custom counters
 - **Alembic Migrations**: Version-controlled database schema changes
@@ -406,6 +411,100 @@ curl http://localhost:8000/api/analytics/dashboard/summary?days=30
 }
 ```
 
+### Popular URLs (Last 24h)
+
+```bash
+curl "http://localhost:8000/api/analytics/popular/24h?limit=10"
+
+# Response
+{
+  "period": "last_24_hours",
+  "returned_count": 3,
+  "top_urls": [
+    {
+      "short_code": "A1b2C3",
+      "original_url": "https://example.com/...",
+      "click_count": 542,
+      "device_breakdown": {
+        "desktop": 350,
+        "mobile": 185,
+        "bot": 7
+      }
+    }
+  ]
+}
+```
+
+### Hourly Analytics (7 Days)
+
+```bash
+curl "http://localhost:8000/api/analytics/A1b2C3/hourly-7d"
+
+# Response
+{
+  "short_code": "A1b2C3",
+  "period_days": 7,
+  "total_clicks": 542,
+  "hourly_data": [
+    {
+      "timestamp": "2024-01-15T10:00:00Z",
+      "hour": 10,
+      "clicks": 45,
+      "devices": {
+        "desktop": 30,
+        "mobile": 14,
+        "bot": 1
+      }
+    }
+  ]
+}
+```
+
+### Device Analytics
+
+```bash
+curl "http://localhost:8000/api/analytics/A1b2C3/device-analytics?days=7"
+
+# Response
+{
+  "short_code": "A1b2C3",
+  "period_days": 7,
+  "total_clicks": 542,
+  "device_distribution": {
+    "desktop": {
+      "count": 350,
+      "percentage": 64.57
+    },
+    "mobile": {
+      "count": 185,
+      "percentage": 34.13
+    },
+    "bot": {
+      "count": 7,
+      "percentage": 1.29
+    }
+  }
+}
+```
+
+### Real-Time Clicks Per Minute
+
+```bash
+# Global CPM
+curl "http://localhost:8000/api/analytics/realtime/clicks-per-minute"
+
+# URL-specific CPM
+curl "http://localhost:8000/api/analytics/realtime/clicks-per-minute?short_code=A1b2C3"
+
+# Response
+{
+  "period_seconds": 60,
+  "clicks_per_minute": 42,
+  "short_code": "A1b2C3",
+  "average_clicks_per_second": 0.7
+}
+```
+
 ### Health Check
 
 ```bash
@@ -590,12 +689,30 @@ pytest tests/test_urls.py::test_create_short_url -v
 - ✅ Dashboard summary
 - ✅ Hourly distribution
 
+**Enhanced Analytics** (`test_analytics_enhanced.py`):
+- ✅ Device type detection (mobile/desktop/bot)
+- ✅ Top URLs endpoint with device breakdown
+- ✅ Hourly analytics with 7-day window
+- ✅ Device distribution analytics
+- ✅ Real-time clicks-per-minute tracking
+- ✅ Sliding window counter operations
+
 **Cache** (`test_cache.py`):
 - ✅ Cache set/get
 - ✅ Cache miss handling
 - ✅ Cache deletion
 - ✅ Cache flush
 - ✅ JSON serialization
+- ✅ Sliding window counter
+
+### Testing Analytics Endpoints
+
+For comprehensive examples on testing all analytics features, see [ANALYTICS_TESTING.md](ANALYTICS_TESTING.md) which includes:
+- Curl examples for all endpoints
+- Load testing scripts
+- Database query examples
+- Continuous monitoring setup
+- Troubleshooting guide
 
 ## 📈 Performance Characteristics
 
