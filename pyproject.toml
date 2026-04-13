@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "urlshort"
+version = "1.0.0"
+description = "Production-grade distributed URL shortener with analytics"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.109.0",
+    "uvicorn[standard]==0.27.0",
+    "pydantic==2.6.1",
+    "pydantic-settings==2.1.0",
+    "sqlalchemy==2.0.24",
+    "sqlalchemy[asyncio]==2.0.24",
+    "alembic==1.13.1",
+    "asyncpg==0.29.0",
+    "redis==5.0.1",
+    "aioredis==2.0.1",
+    "celery==5.3.4",
+    "prometheus-client==0.19.0",
+    "python-dotenv==1.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest==7.4.4",
+    "pytest-asyncio==0.23.2",
+    "pytest-cov==4.1.0",
+    "httpx==0.25.2",
+    "testcontainers==3.7.1",
+]
+dev = [
+    "black==23.12.1",
+    "isort==5.13.2",
+    "flake8==6.1.0",
+    "mypy==1.7.1",
+    "python-json-logger==2.0.7",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-v --cov=app --cov=workers --cov-report=html --cov-report=term-missing"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
