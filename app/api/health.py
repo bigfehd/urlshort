@@ -2,11 +2,13 @@
 import logging
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache import cache
 from app.database import get_db_session
+from app.metrics import get_metrics
 from app.schemas import HealthResponse
 
 logger = logging.getLogger(__name__)
@@ -128,15 +130,16 @@ async def detailed_health(session: AsyncSession = Depends(get_db_session)) -> di
 
 
 @router.get("/metrics")
-async def metrics() -> bytes:
+async def metrics() -> Response:
     """Prometheus metrics endpoint.
     
     Returns:
-        Prometheus metrics in text format
+        Prometheus metrics in text format with proper content type
     """
-    from app.metrics import get_metrics
-
-    return get_metrics()
+    return Response(
+        content=get_metrics(),
+        media_type="text/plain; version=0.0.4; charset=utf-8"
+    )
 
 
 @router.get("/ping")

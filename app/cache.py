@@ -261,6 +261,47 @@ class RedisCache:
             logger.warning(f"Sliding window get error for {key}: {e}")
             return 0
 
+    async def incr(self, key: str) -> int:
+        """Increment a counter by 1.
+        
+        Args:
+            key: Redis key for the counter
+            
+        Returns:
+            New counter value
+        """
+        if not self.redis:
+            return 0
+
+        try:
+            value = await self.redis.incr(key)
+            logger.debug(f"Counter incremented for {key}: {value}")
+            return value
+        except Exception as e:
+            logger.warning(f"Counter increment error for {key}: {e}")
+            return 0
+
+    async def expire(self, key: str, seconds: int) -> bool:
+        """Set expiration time on a key.
+        
+        Args:
+            key: Redis key
+            seconds: Time to live in seconds
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.redis:
+            return False
+
+        try:
+            await self.redis.expire(key, seconds)
+            logger.debug(f"Expiration set for {key}: {seconds} seconds")
+            return True
+        except Exception as e:
+            logger.warning(f"Expire error for {key}: {e}")
+            return False
+
 
 # Global cache instance
 cache = RedisCache()

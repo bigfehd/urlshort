@@ -1,8 +1,9 @@
 """Pydantic schemas for request/response validation."""
 from datetime import datetime
 from typing import Optional
+from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class CreateShortURLRequest(BaseModel):
@@ -21,6 +22,48 @@ class CreateShortURLRequest(BaseModel):
             ]
         }
     }
+
+    @field_validator("original_url", mode="before")
+    @classmethod
+    def validate_url_length(cls, v: str) -> str:
+        """Validate URL length (max 2000 characters)."""
+        if len(str(v)) > 2000:
+            raise ValueError("URL cannot exceed 2000 characters")
+        return v
+
+    @field_validator("original_url", mode="after")
+    @classmethod
+    def validate_no_private_ips(cls, v: HttpUrl) -> HttpUrl:
+        """Block URLs pointing to private IP ranges."""
+        url_str = str(v)
+        parsed = urlparse(url_str)
+        hostname = parsed.hostname or ""
+
+        # Lowercase for comparison
+        hostname_lower = hostname.lower()
+
+        # Block localhost
+        if hostname_lower in ["localhost", "127.0.0.1", "::1", "0.0.0.0"]:
+            raise ValueError("Private loopback addresses are not allowed")
+
+        # Block private IP ranges
+        if hostname_lower.startswith("192.168.") or hostname_lower.startswith("10."):
+            raise ValueError("Private IP addresses (192.168.x.x, 10.x.x.x) are not allowed")
+
+        # Block 172.16.0.0 - 172.31.255.255
+        if hostname_lower.startswith("172."):
+            try:
+                parts = hostname_lower.split(".")
+                if len(parts) >= 2:
+                    second_octet = int(parts[1])
+                    if 16 <= second_octet <= 31:
+                        raise ValueError(
+                            "Private IP addresses (172.16.x.x - 172.31.x.x) are not allowed"
+                        )
+            except (ValueError, IndexError):
+                pass  # Not a numeric IP, let it through
+
+        return v
 
 
 class ShortURLResponse(BaseModel):

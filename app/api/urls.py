@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.cache import cache, get_redirect_cache_key, get_url_info_cache_key
 from app.database import get_db_session
-from app.metrics import cache_hits, cache_misses, redirects_total
+from app.metrics import cache_hits, cache_misses, redirects_total, urls_created_total
 from app.models import ShortURL
 from app.schemas import (
     CreateShortURLRequest,
@@ -29,23 +29,64 @@ settings = get_settings()
 router = APIRouter(prefix="/api", tags=["urls"])
 
 
+async def check_rate_limit(request: Request) -> None:
+    """Check rate limit for create_short_url endpoint.
+    
+    Rate limit: 20 requests per minute per IP
+    
+    Args:
+        request: HTTP request
+        
+    Raises:
+        HTTPException: If rate limit exceeded
+    """
+    try:
+        client_ip = get_client_ip(dict(request.headers))
+        rate_limit_key = f"rate_limit:shorten:{client_ip}"
+        
+        # Increment counter (expires after 60 seconds)
+        current_count = await cache.incr(rate_limit_key)
+        if current_count == 1:
+            # Set expiry only on first request
+            await cache.expire(rate_limit_key, 60)
+        
+        if current_count > 20:
+            logger.warning(f"Rate limit exceeded for IP {client_ip}: {current_count} requests")
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded: maximum 20 requests per minute",
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"Rate limit check failed (allowing request): {e}")
+
+
+
 @router.post("/shorten", response_model=CreateShortURLResponse)
 async def create_short_url(
     request: CreateShortURLRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_db_session),
 ) -> CreateShortURLResponse:
-    """Create a shortened URL.
+    """Create a shortened URL with rate limiting.
+    
+    Rate limit: 20 requests per minute per IP
     
     Args:
         request: Request body containing original URL and optional description
+        http_request: HTTP request (for rate limiting)
         session: Database session
         
     Returns:
         Created short URL details
         
     Raises:
-        HTTPException: If URL is invalid or database operation fails
+        HTTPException: If URL is invalid, rate limited, or database operation fails
     """
+    # Check rate limit
+    await check_rate_limit(http_request)
+    
     try:
         # Create new ShortURL record
         short_url = ShortURL(
@@ -64,6 +105,9 @@ async def create_short_url(
         # Cache the redirect
         cache_key = get_redirect_cache_key(short_code)
         await cache.set(cache_key, str(request.original_url))
+
+        # Track metric
+        urls_created_total.inc()
 
         logger.info(f"Created short URL: {short_code} -> {request.original_url}")
 

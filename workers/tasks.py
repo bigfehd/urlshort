@@ -19,7 +19,15 @@ engine = create_async_engine(settings.database_dsn, future=True)
 async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    autoretry_for=(Exception,),
+    retry_kwargs={"max_retries": 3},
+    retry_backoff=True,
+    retry_backoff_max=600,  # Max 10 minutes between retries
+    retry_jitter=True,  # Add random jitter to prevent thundering herd
+)
 def process_click_event(
     self,
     short_url_id: int,
@@ -28,7 +36,13 @@ def process_click_event(
     ip_address: Optional[str] = None,
     device_type: Optional[str] = None,
 ) -> dict:
-    """Process a click event asynchronously.
+    """Process a click event asynchronously with exponential backoff retry.
+    
+    Retry Strategy:
+    - Max 3 retries
+    - Exponential backoff: 2^retry_count seconds (capped at 10 minutes)
+    - Random jitter to prevent thundering herd
+    - Automatic retry on any Exception
     
     This task:
     1. Creates a ClickEvent record in the database
@@ -61,14 +75,21 @@ def process_click_event(
                     short_url_id, user_agent, referrer, ip_address, device_type
                 )
             )
+            logger.info(f"Click event processed successfully for URL {short_url_id}")
             return result
         finally:
             loop.close()
 
     except Exception as exc:
-        logger.exception(f"Error processing click event for URL {short_url_id}: {exc}")
-        # Retry with exponential backoff
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries)
+        # Calculate exponential backoff: 2^retries with max 600 seconds (10 minutes)
+        retry_count = self.request.retries
+        countdown = min(2 ** retry_count, 600)
+        logger.warning(
+            f"Error processing click event for URL {short_url_id} (retry {retry_count+1}/3): {exc}. "
+            f"Retrying in {countdown} seconds."
+        )
+        # Manually raise retry to use custom countdown
+        raise self.retry(exc=exc, countdown=countdown)
 
 
 async def _process_click_event_async(

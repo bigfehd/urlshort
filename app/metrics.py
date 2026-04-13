@@ -4,7 +4,7 @@ import time
 from typing import Callable
 
 from fastapi import Request
-from prometheus_client import Counter, Histogram, Info, generate_latest
+from prometheus_client import Counter, Gauge, Histogram, Info, generate_latest
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,18 @@ request_duration = Histogram(
     "Request duration in seconds",
     ["method", "endpoint"],
     buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+)
+
+# Production-grade metrics
+redirect_latency_histogram = Histogram(
+    "urlshort_redirect_latency_ms",
+    "Redirect endpoint latency in milliseconds",
+    buckets=(1, 2, 5, 10, 25, 50, 100, 250, 500, 1000),
+)
+
+cache_hit_rate_gauge = Gauge(
+    "urlshort_cache_hit_rate",
+    "Cache hit rate (0-100)",
 )
 
 redirects_total = Counter(
@@ -50,6 +62,11 @@ celery_tasks = Counter(
     "urlshort_celery_tasks_total",
     "Total Celery tasks",
     ["task_name", "status"],
+)
+
+urls_created_total = Counter(
+    "urlshort_urls_created_total",
+    "Total URLs created",
 )
 
 
@@ -91,6 +108,10 @@ class PrometheusMiddleware:
             duration = time.time() - start_time
             request_count.labels(method=method, endpoint=endpoint, status=status_code).inc()
             request_duration.labels(method=method, endpoint=endpoint).observe(duration)
+            
+            # Track redirect latency specifically
+            if endpoint.startswith("/") and method == "GET" and status_code == 302:
+                redirect_latency_histogram.observe(duration * 1000)  # Convert to ms
 
         return response
 
@@ -101,4 +122,15 @@ def get_metrics() -> bytes:
     Returns:
         Metrics in Prometheus text format
     """
+    # Update cache hit rate gauge
+    try:
+        total_hits = cache_hits._value.get()
+        total_misses = cache_misses._value.get()
+        total_requests = total_hits + total_misses
+        if total_requests > 0:
+            hit_rate = (total_hits / total_requests) * 100
+            cache_hit_rate_gauge.set(hit_rate)
+    except Exception:
+        pass  # Silently ignore if metrics not available
+
     return generate_latest()

@@ -2,8 +2,9 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, HTMLResponse
 from prometheus_client import CONTENT_TYPE_LATEST
 
 from app.api import analytics, health, urls
@@ -84,6 +85,116 @@ def create_app() -> FastAPI:
     app.include_router(urls.router)
     app.include_router(analytics.router)
     app.include_router(health.router)
+
+    # Custom exception handlers
+    @app.exception_handler(HTTPException)
+    async def custom_http_exception_handler(request: Request, exc: HTTPException):
+        """Custom HTTP exception handler with 404 page support.
+        
+        Returns an HTML page for 404 errors, JSON for others.
+        """
+        if exc.status_code == 404:
+            # Custom 404 HTML page
+            return HTMLResponse(
+                status_code=404,
+                content="""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - URL Not Found</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px 20px;
+            text-align: center;
+            max-width: 600px;
+        }
+        h1 {
+            color: #764ba2;
+            font-size: 48px;
+            margin: 0 0 10px 0;
+        }
+        p {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        .error-code {
+            color: #999;
+            font-size: 14px;
+            font-family: monospace;
+            margin-top: 20px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: transform 0.2s;
+        }
+        a:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>404</h1>
+        <p><strong>Short URL Not Found</strong></p>
+        <p>The link you're looking for doesn't exist or may have expired.</p>
+        <p>Please check the URL and try again.</p>
+        <div class="error-code">
+            <small>Requested URL: """ + request.url.path + """</small>
+        </div>
+        <a href="/">← Go Home</a>
+    </div>
+</body>
+</html>
+                """,
+            )
+        else:
+            # Return JSON for other HTTP errors
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={
+                    "error": exc.detail or "Error",
+                    "status_code": exc.status_code,
+                },
+            )
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        """Global exception handler for unexpected errors."""
+        logger.exception(f"Unhandled exception: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "Internal Server Error",
+                "status_code": 500,
+                "path": str(request.url.path),
+            },
+        )
 
     # Root endpoint
     @app.get("/")
