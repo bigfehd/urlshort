@@ -230,13 +230,13 @@ Coverage: 100% of new code paths
 All scenarios: happy path + edge cases
 
 Device parser identifies mobile correctly (iPhone user agent)
-✅ Device parser identifies bot correctly (crawler keywords)
-✅ Device parser defaults to desktop
-✅ Top URLs endpoint returns correct device sums
-✅ Hourly analytics aggregates by hour correctly
-✅ Device percentages sum to 100%
-✅ Sliding window counter increments within window
-✅ Sliding window counter expires after timeout
+ Device parser identifies bot correctly (crawler keywords)
+ Device parser defaults to desktop
+ Top URLs endpoint returns correct device sums
+ Hourly analytics aggregates by hour correctly
+ Device percentages sum to 100%
+ Sliding window counter increments within window
+ Sliding window counter expires after timeout
 ```
 
 ## Performance Impact
