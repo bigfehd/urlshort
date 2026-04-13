@@ -56,6 +56,9 @@ class ClickEvent(Base):
     user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     referrer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    device_type: Mapped[str] = mapped_column(
+        String(20), default="desktop", nullable=False
+    )  # mobile, desktop, or bot
 
     __table_args__ = (
         Index("ix_click_events_short_url_id", "short_url_id"),

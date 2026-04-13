@@ -68,6 +68,7 @@ class ClickEventResponse(BaseModel):
     user_agent: Optional[str]
     referrer: Optional[str]
     ip_address: Optional[str]
+    device_type: str
 
     model_config = {"from_attributes": True}
 
@@ -99,3 +100,71 @@ class HealthResponse(BaseModel):
     version: str
     database: str
     redis: str
+
+
+class DeviceBreakdown(BaseModel):
+    """Device type breakdown statistics."""
+
+    desktop: int
+    mobile: int
+    bot: int
+
+
+class TopURLItem(BaseModel):
+    """Single item in top URLs list."""
+
+    short_code: str
+    original_url: str
+    click_count: int
+    device_breakdown: DeviceBreakdown
+
+
+class TopURLsResponse(BaseModel):
+    """Response for top URLs endpoint."""
+
+    period: str
+    returned_count: int
+    top_urls: list[TopURLItem]
+
+
+class HourlyDataPoint(BaseModel):
+    """Single hour of analytics data."""
+
+    timestamp: datetime
+    hour: int
+    clicks: int
+    devices: DeviceBreakdown
+
+
+class HourlyAnalyticsResponse(BaseModel):
+    """Response for hourly analytics."""
+
+    short_code: str
+    period_days: int
+    total_clicks: int
+    hourly_data: list[HourlyDataPoint]
+
+
+class DevicePercentage(BaseModel):
+    """Device type with count and percentage."""
+
+    count: int
+    percentage: float
+
+
+class DeviceAnalyticsResponse(BaseModel):
+    """Response for device analytics."""
+
+    short_code: str
+    period_days: int
+    total_clicks: int
+    device_distribution: dict[str, DevicePercentage]
+
+
+class ClicksPerMinuteResponse(BaseModel):
+    """Response for clicks per minute endpoint."""
+
+    period_seconds: int
+    clicks_per_minute: int
+    short_code: Optional[str] = None
+    average_clicks_per_second: float

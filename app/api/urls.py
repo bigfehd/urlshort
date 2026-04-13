@@ -17,7 +17,7 @@ from app.schemas import (
     CreateShortURLResponse,
     ShortURLResponse,
 )
-from app.utils import generate_short_code, get_client_ip
+from app.utils import UserAgentParser, generate_short_code, get_client_ip
 from config import get_settings
 from workers.config import celery_app
 
@@ -175,6 +175,20 @@ async def redirect(
     # Record click event asynchronously (fire and forget)
     if short_url_id:
         try:
+            # Detect device type from user agent
+            device_type = UserAgentParser.detect_device_type(user_agent)
+            
+            # Track clicks per minute (in Redis)
+            try:
+                # Global clicks per minute
+                await cache.increment_sliding_window("clicks_per_minute:global", window_seconds=60)
+                # URL-specific clicks per minute
+                await cache.increment_sliding_window(
+                    f"clicks_per_minute:url:{short_code}", window_seconds=60
+                )
+            except Exception as e:
+                logger.warning(f"Failed to update sliding window counters: {e}")
+            
             celery_app.send_task(
                 "workers.tasks.process_click_event",
                 args=[short_url_id],
@@ -182,6 +196,7 @@ async def redirect(
                     "user_agent": user_agent,
                     "referrer": referrer,
                     "ip_address": ip_address,
+                    "device_type": device_type,
                 },
             )
         except Exception as e:
@@ -190,12 +205,14 @@ async def redirect(
         redirects_total.labels(short_code=short_code, status=302).inc()
 
     # Structured JSON logging for redirect events
+    device_type = UserAgentParser.detect_device_type(user_agent)
     redirect_event = {
         "short_code": short_code,
         "cache_hit": cache_hit,
         "redis_available": redis_available,
         "latency_ms": latency_ms,
         "user_agent": user_agent,
+        "device_type": device_type,
         "ip_address": ip_address,
         "original_url": original_url[:50] if original_url else None,  # Truncate for logs
     }

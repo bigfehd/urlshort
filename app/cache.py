@@ -1,6 +1,7 @@
 """Redis cache layer for URL redirects."""
 import json
 import logging
+import time
 from typing import Any, Optional
 
 import aioredis
@@ -193,6 +194,72 @@ class RedisCache:
         except Exception as e:
             logger.warning(f"Redis health check failed: {e}")
         return False
+
+    async def increment_sliding_window(
+        self, key: str, window_seconds: int = 60
+    ) -> int:
+        """Increment a sliding window counter.
+        
+        Uses Redis sorted set to track timestamps within a window.
+        Automatically removes old entries outside the window.
+        
+        Args:
+            key: Redis key for the counter
+            window_seconds: Time window in seconds
+            
+        Returns:
+            Current count within the window
+        """
+        if not self.redis:
+            return 0
+
+        try:
+            now = time.time()
+            cutoff = now - window_seconds
+
+            # Remove old entries
+            await self.redis.zremrangebyscore(key, 0, cutoff)
+
+            # Add current entry
+            await self.redis.zadd(key, {str(now): now})
+
+            # Set expiration on the key
+            await self.redis.expire(key, window_seconds + 1)
+
+            # Get current count
+            count = await self.redis.zcard(key)
+            logger.debug(f"Sliding window counter {key}: {count}")
+            return count
+        except Exception as e:
+            logger.warning(f"Sliding window increment error for {key}: {e}")
+            return 0
+
+    async def get_sliding_window_count(self, key: str, window_seconds: int = 60) -> int:
+        """Get current count in a sliding window.
+        
+        Args:
+            key: Redis key for the counter
+            window_seconds: Time window in seconds
+            
+        Returns:
+            Current count within the window
+        """
+        if not self.redis:
+            return 0
+
+        try:
+            now = time.time()
+            cutoff = now - window_seconds
+
+            # Remove old entries
+            await self.redis.zremrangebyscore(key, 0, cutoff)
+
+            # Get current count
+            count = await self.redis.zcard(key)
+            return count
+        except Exception as e:
+            logger.warning(f"Sliding window get error for {key}: {e}")
+            return 0
 
 
 # Global cache instance

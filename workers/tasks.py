@@ -26,6 +26,7 @@ def process_click_event(
     user_agent: Optional[str] = None,
     referrer: Optional[str] = None,
     ip_address: Optional[str] = None,
+    device_type: Optional[str] = None,
 ) -> dict:
     """Process a click event asynchronously.
     
@@ -33,12 +34,14 @@ def process_click_event(
     1. Creates a ClickEvent record in the database
     2. Updates the ShortURL click count
     3. Updates last_accessed_at timestamp
+    4. Stores device type classification
     
     Args:
         short_url_id: ID of the shortened URL that was clicked
         user_agent: HTTP User-Agent header
         referrer: HTTP Referrer header
         ip_address: Client IP address
+        device_type: Device type (mobile, desktop, bot)
         
     Returns:
         Task result dictionary with status and details
@@ -55,7 +58,7 @@ def process_click_event(
         try:
             result = loop.run_until_complete(
                 _process_click_event_async(
-                    short_url_id, user_agent, referrer, ip_address
+                    short_url_id, user_agent, referrer, ip_address, device_type
                 )
             )
             return result
@@ -73,6 +76,7 @@ async def _process_click_event_async(
     user_agent: Optional[str] = None,
     referrer: Optional[str] = None,
     ip_address: Optional[str] = None,
+    device_type: Optional[str] = None,
 ) -> dict:
     """Async implementation of click event processing.
     
@@ -81,6 +85,7 @@ async def _process_click_event_async(
         user_agent: HTTP User-Agent
         referrer: HTTP Referrer
         ip_address: Client IP address
+        device_type: Device type classification
         
     Returns:
         Result dictionary
@@ -93,6 +98,7 @@ async def _process_click_event_async(
                 user_agent=user_agent,
                 referrer=referrer,
                 ip_address=ip_address,
+                device_type=device_type or "desktop",
                 clicked_at=datetime.now(timezone.utc),
             )
             session.add(click_event)
@@ -111,12 +117,13 @@ async def _process_click_event_async(
             await session.commit()
 
             logger.info(
-                f"Click event processed for short_url_id: {short_url_id}"
+                f"Click event processed for short_url_id: {short_url_id}, device: {device_type}"
             )
             return {
                 "status": "success",
                 "short_url_id": short_url_id,
                 "click_event_id": click_event.id,
+                "device_type": device_type,
             }
 
         except Exception as e:

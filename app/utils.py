@@ -95,3 +95,74 @@ def get_client_ip(headers: dict) -> Optional[str]:
         return forwarded_for.split(",")[0].strip()
     
     return headers.get("x-real-ip", headers.get("client-host"))
+
+
+class UserAgentParser:
+    """Parse user agent string to detect device type."""
+
+    MOBILE_KEYWORDS = [
+        "mobile",
+        "android",
+        "iphone",
+        "ipod",
+        "windows phone",
+        "blackberry",
+        "samsung",
+        "nokia",
+        "htc",
+        "nexus",
+        "pixel",
+    ]
+
+    BOT_KEYWORDS = [
+        "bot",
+        "crawler",
+        "spider",
+        "scraper",
+        "curl",
+        "wget",
+        "python",
+        "httpclient",
+        "php",
+        "java",
+        "googlebot",
+        "bingbot",
+        "slurp",
+        "duckduckbot",
+        "baiduspider",
+        "yandexbot",
+        "facebookexternalhit",
+        "twitterbot",
+        "linkedinbot",
+        "whatsapp",
+        "telegram",
+        "viber",
+    ]
+
+    @classmethod
+    def detect_device_type(cls, user_agent: Optional[str]) -> str:
+        """Detect device type from user agent string.
+        
+        Args:
+            user_agent: HTTP User-Agent header value
+            
+        Returns:
+            One of: "mobile", "desktop", or "bot"
+        """
+        if not user_agent:
+            return "desktop"
+
+        user_agent_lower = user_agent.lower()
+
+        # Check for bot first (higher priority)
+        for bot_keyword in cls.BOT_KEYWORDS:
+            if bot_keyword in user_agent_lower:
+                return "bot"
+
+        # Check for mobile
+        for mobile_keyword in cls.MOBILE_KEYWORDS:
+            if mobile_keyword in user_agent_lower:
+                return "mobile"
+
+        # Default to desktop
+        return "desktop"
