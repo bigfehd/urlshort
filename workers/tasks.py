@@ -156,10 +156,10 @@ async def _process_click_event_async(
 @celery_app.task
 def cleanup_old_click_events(days: int = 90) -> dict:
     """Clean up old click events from database.
-    
+
     Args:
         days: Delete click events older than this many days
-        
+
     Returns:
         Result dictionary with count of deleted records
     """
@@ -176,10 +176,10 @@ def cleanup_old_click_events(days: int = 90) -> dict:
 
 async def _cleanup_old_click_events_async(days: int) -> dict:
     """Async implementation of cleanup.
-    
+
     Args:
         days: Days threshold
-        
+
     Returns:
         Result dictionary
     """
