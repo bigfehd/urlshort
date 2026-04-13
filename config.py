@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     # Logging
     LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: Literal["text", "json"] = "text"
 
     @property
     def database_dsn(self) -> str:
@@ -70,8 +71,13 @@ def get_settings() -> Settings:
 
 
 def setup_logging(log_level: str = "INFO") -> None:
-    """Configure logging."""
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+    """Configure logging using structured logging configuration.
+    
+    Args:
+        log_level: Logging level
+    """
+    from logging_config import configure_logging
+
+    settings = get_settings()
+    json_format = settings.LOG_FORMAT == "json"
+    configure_logging(log_level=log_level, json_format=json_format)

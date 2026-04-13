@@ -129,6 +129,57 @@ class RedisCache:
             logger.warning(f"Cache flush error: {e}")
             return False
 
+    async def pipeline_get_and_enqueue(
+        self, cache_key: str
+    ) -> tuple[Optional[str], bool]:
+        """Get cache value using pipelined operation.
+        
+        Args:
+            cache_key: The cache key to retrieve
+            
+        Returns:
+            Tuple of (cached_value, was_cached) where was_cached indicates cache hit
+        """
+        if not self.redis:
+            return None, False
+
+        try:
+            pipe = self.redis.pipeline()
+            pipe.get(cache_key)
+            result = await pipe.execute()
+            cached_value = result[0] if result else None
+            was_cached = cached_value is not None
+            return cached_value, was_cached
+        except Exception as e:
+            logger.warning(f"Pipeline get error for {cache_key}: {e}")
+            return None, False
+
+    async def pipeline_set(
+        self, cache_key: str, value: str, ttl: Optional[int] = None
+    ) -> bool:
+        """Set cache value using pipelined operation.
+        
+        Args:
+            cache_key: The cache key
+            value: The value to cache
+            ttl: Time to live in seconds
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.redis:
+            return False
+
+        try:
+            ttl = ttl or self.ttl
+            pipe = self.redis.pipeline()
+            pipe.setex(cache_key, ttl, value)
+            await pipe.execute()
+            return True
+        except Exception as e:
+            logger.warning(f"Pipeline set error for {cache_key}: {e}")
+            return False
+
     async def is_connected(self) -> bool:
         """Check if Redis is connected and healthy.
         
@@ -156,3 +207,8 @@ def get_redirect_cache_key(short_code: str) -> str:
 def get_url_info_cache_key(short_code: str) -> str:
     """Get cache key for URL info."""
     return f"url_info:{short_code}"
+
+
+class RedisUnavailableError(Exception):
+    """Raised when Redis is unavailable and we're falling back to DB."""
+    pass

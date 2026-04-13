@@ -1,5 +1,7 @@
 """API routes for URL shortening endpoints."""
+import json
 import logging
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -9,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.cache import cache, get_redirect_cache_key, get_url_info_cache_key
 from app.database import get_db_session
 from app.metrics import cache_hits, cache_misses, redirects_total
-from app.models import ClickEvent, ShortURL
+from app.models import ShortURL
 from app.schemas import (
     CreateShortURLRequest,
     CreateShortURLResponse,
@@ -20,6 +22,8 @@ from config import get_settings
 from workers.config import celery_app
 
 logger = logging.getLogger(__name__)
+# Structured JSON logger for redirect events
+redirect_logger = logging.getLogger("urlshort.redirects")
 settings = get_settings()
 
 router = APIRouter(prefix="/api", tags=["urls"])
@@ -81,90 +85,132 @@ async def redirect(
     request: Request,
     session: AsyncSession = Depends(get_db_session),
 ) -> Response:
-    """Redirect to original URL by short code.
+    """Redirect to original URL by short code with optimized cache-aside pattern.
     
-    Uses cache-aside pattern:
-    1. Try to get redirect URL from cache
-    2. If not in cache, query database
-    3. Cache the result
+    Features:
+    - Redis pipeline for efficient cache operations
+    - Graceful fallback to PostgreSQL if Redis is unavailable
+    - Response headers indicating cache hit/miss and latency
+    - Structured JSON logging for every redirect
     
     Args:
         short_code: The short code
-        request: HTTP request (for metrics)
+        request: HTTP request (for metrics and client info)
         session: Database session
         
     Returns:
-        Redirect response to original URL
+        Redirect response to original URL with cache/timing headers
         
     Raises:
         HTTPException: If short code not found
     """
-    logger.debug(f"Redirect request for: {short_code}")
-
-    # Try cache first (cache-aside pattern)
+    start_time = time.time()
     cache_key = get_redirect_cache_key(short_code)
-    original_url = await cache.get(cache_key)
+    original_url = None
+    short_url_id = None
+    cache_hit = False
+    redis_available = True
 
-    if original_url:
-        logger.debug(f"Cache hit for: {short_code}")
-        cache_hits.inc()
-        status_code = 200
-    else:
-        logger.debug(f"Cache miss for: {short_code}")
-        cache_misses.inc()
-
-        # Query database
-        stmt = select(ShortURL).where(ShortURL.short_code == short_code)
-        result = await session.execute(stmt)
-        short_url = result.scalar_one_or_none()
-
-        if not short_url:
-            logger.warning(f"Short code not found: {short_code}")
-            raise HTTPException(status_code=404, detail="URL not found")
-
-        original_url = short_url.original_url
-        status_code = 200
-
-        # Cache for future requests
-        await cache.set(cache_key, original_url)
-
-    # Extract client information
+    # Extract client information upfront
     headers_dict = dict(request.headers)
     user_agent = headers_dict.get("user-agent")
     referrer = headers_dict.get("referer")
     ip_address = get_client_ip(headers_dict)
 
-    # Record click event asynchronously
-    # Get the ShortURL ID if not already available
+    # Try cache first using pipelined operation
+    try:
+        original_url, cache_hit = await cache.pipeline_get_and_enqueue(cache_key)
+        if cache_hit:
+            cache_hits.inc()
+    except Exception as e:
+        logger.warning(f"Redis pipeline error: {e}, falling back to database")
+        redis_available = False
+
+    # If not in cache or Redis is unavailable, query database
     if not original_url:
-        stmt = select(ShortURL.id).where(ShortURL.short_code == short_code)
-        result = await session.execute(stmt)
-        short_url_id = result.scalar_one_or_none()
-    else:
-        # If we got from cache, we need to query the ID
-        stmt = select(ShortURL.id).where(ShortURL.short_code == short_code)
-        result = await session.execute(stmt)
-        short_url_id = result.scalar_one_or_none()
+        if cache_hit:
+            # Cache miss
+            cache_misses.inc()
+        
+        try:
+            stmt = select(ShortURL).where(ShortURL.short_code == short_code)
+            result = await session.execute(stmt)
+            short_url = result.scalar_one_or_none()
 
+            if not short_url:
+                logger.warning(f"Short code not found: {short_code}")
+                raise HTTPException(status_code=404, detail="URL not found")
+
+            original_url = short_url.original_url
+            short_url_id = short_url.id
+
+            # Try to cache for future requests (fail gracefully if Redis is down)
+            if redis_available:
+                try:
+                    await cache.pipeline_set(cache_key, original_url)
+                except Exception as e:
+                    logger.warning(f"Failed to cache redirect: {e}")
+                    redis_available = False
+            else:
+                cache_misses.inc()
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Database error during redirect: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+
+    # If we got from cache but still need the ID for click tracking
+    if cache_hit and not short_url_id:
+        try:
+            stmt = select(ShortURL.id).where(ShortURL.short_code == short_code)
+            result = await session.execute(stmt)
+            short_url_id = result.scalar_one_or_none()
+        except Exception as e:
+            logger.warning(f"Failed to get short_url_id for click tracking: {e}")
+
+    # Calculate response time
+    latency_ms = round((time.time() - start_time) * 1000, 2)
+
+    # Record click event asynchronously (fire and forget)
     if short_url_id:
-        # Send async task to Celery
-        celery_app.send_task(
-            "workers.tasks.process_click_event",
-            args=[short_url_id],
-            kwargs={
-                "user_agent": user_agent,
-                "referrer": referrer,
-                "ip_address": ip_address,
-            },
-        )
+        try:
+            celery_app.send_task(
+                "workers.tasks.process_click_event",
+                args=[short_url_id],
+                kwargs={
+                    "user_agent": user_agent,
+                    "referrer": referrer,
+                    "ip_address": ip_address,
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Failed to enqueue click event: {e}")
 
-        redirects_total.labels(short_code=short_code, status=status_code).inc()
+        redirects_total.labels(short_code=short_code, status=302).inc()
 
-    logger.info(f"Redirecting {short_code} to {original_url}")
+    # Structured JSON logging for redirect events
+    redirect_event = {
+        "short_code": short_code,
+        "cache_hit": cache_hit,
+        "redis_available": redis_available,
+        "latency_ms": latency_ms,
+        "user_agent": user_agent,
+        "ip_address": ip_address,
+        "original_url": original_url[:50] if original_url else None,  # Truncate for logs
+    }
+    redirect_logger.info(json.dumps(redirect_event))
+
+    # Build response with performance headers
+    response_headers = {
+        "Location": str(original_url),
+        "X-Cache": "HIT" if cache_hit else "MISS",
+        "X-Response-Time": f"{latency_ms}ms",
+    }
 
     return Response(
         status_code=302,
-        headers={"Location": str(original_url)},
+        headers=response_headers,
     )
 
 

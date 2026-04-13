@@ -16,10 +16,72 @@ async def test_health_check(client: AsyncClient):
     response = await client.get("/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] in ["healthy", "degraded"]
+    assert data["status"] in ["healthy", "degraded", "unhealthy"]
     assert "version" in data
     assert "database" in data
     assert "redis" in data
+    assert data["database"] in ["healthy", "unhealthy"]
+    assert data["redis"] in ["healthy", "unhealthy"]
+
+
+@pytest.mark.asyncio
+async def test_detailed_health_check(client: AsyncClient):
+    """Test detailed health check endpoint with latency info.
+    
+    Args:
+        client: AsyncClient test fixture
+    """
+    response = await client.get("/health/detailed")
+    assert response.status_code == 200
+    data = response.json()
+
+    # Check structure
+    assert "status" in data
+    assert "timestamp" in data
+    assert "components" in data
+
+    # Check components
+    assert "database" in data["components"]
+    assert "redis" in data["components"]
+
+    # Check component details
+    db_component = data["components"]["database"]
+    redis_component = data["components"]["redis"]
+
+    assert "status" in db_component
+    assert "latency_ms" in db_component
+    assert db_component["status"] in ["healthy", "unhealthy"]
+    assert isinstance(db_component["latency_ms"], (int, float)) or db_component["latency_ms"] is None
+
+    assert "status" in redis_component
+    assert "latency_ms" in redis_component
+    assert redis_component["status"] in ["healthy", "unhealthy"]
+
+
+@pytest.mark.asyncio
+async def test_health_with_database_healthy(client: AsyncClient):
+    """Test health check when database is healthy.
+    
+    Args:
+        client: AsyncClient test fixture
+    """
+    response = await client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["database"] == "healthy"
+
+
+@pytest.mark.asyncio
+async def test_health_with_redis_healthy(client: AsyncClient):
+    """Test health check when Redis is healthy.
+    
+    Args:
+        client: AsyncClient test fixture
+    """
+    response = await client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["redis"] == "healthy"
 
 
 @pytest.mark.asyncio
@@ -49,6 +111,57 @@ async def test_cache_set_get(mock_redis_cache: RedisCache):
 
     value = await mock_redis_cache.get("test_key")
     assert value == "test_value"
+
+
+@pytest.mark.asyncio
+async def test_cache_pipeline_get(mock_redis_cache: RedisCache):
+    """Test cache pipeline get operation.
+    
+    Args:
+        mock_redis_cache: Mock Redis cache fixture
+    """
+    await mock_redis_cache.connect()
+
+    # Set a value
+    await mock_redis_cache.set("pipeline_key", "pipeline_value")
+
+    # Test pipeline get
+    value, was_cached = await mock_redis_cache.pipeline_get_and_enqueue("pipeline_key")
+    assert value == "pipeline_value"
+    assert was_cached is True
+
+
+@pytest.mark.asyncio
+async def test_cache_pipeline_get_miss(mock_redis_cache: RedisCache):
+    """Test cache pipeline get on cache miss.
+    
+    Args:
+        mock_redis_cache: Mock Redis cache fixture
+    """
+    await mock_redis_cache.connect()
+
+    # Test pipeline get on non-existent key
+    value, was_cached = await mock_redis_cache.pipeline_get_and_enqueue("nonexistent")
+    assert value is None
+    assert was_cached is False
+
+
+@pytest.mark.asyncio
+async def test_cache_pipeline_set(mock_redis_cache: RedisCache):
+    """Test cache pipeline set operation.
+    
+    Args:
+        mock_redis_cache: Mock Redis cache fixture
+    """
+    await mock_redis_cache.connect()
+
+    # Test pipeline set
+    success = await mock_redis_cache.pipeline_set("pipeline_set_key", "pipeline_set_value")
+    assert success is True
+
+    # Verify it was set
+    value = await mock_redis_cache.get("pipeline_set_key")
+    assert value == "pipeline_set_value"
 
 
 @pytest.mark.asyncio
